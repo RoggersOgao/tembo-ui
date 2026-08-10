@@ -1,0 +1,320 @@
+# Auth Store Setup & Usage Guide
+
+### 1. Wrap your app with SessionSyncProvider
+
+    ```tsx
+// app/layout.tsx
+import { SessionProvider } from "next-auth/react";
+import { SessionSyncProvider } from "@/components/providers/session-sync-provider";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <SessionProvider>
+          <SessionSyncProvider>
+            {children}
+          </SessionSyncProvider>
+        </SessionProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### 2. Protect your dashboard pages
+
+    ```tsx
+// app/dashboard/page.tsx
+import { DashboardGuard } from "@/components/providers/session-sync-provider";
+
+export default function DashboardPage() {
+  return (
+    <DashboardGuard>
+      {/* Your dashboard content */}
+      <div>Welcome to Dashboard</div>
+    </DashboardGuard>
+  );
+}
+```
+
+### 3. Role - based protection
+
+    ```tsx
+// app/admin/page.tsx
+import { DashboardGuard } from "@/components/providers/session-sync-provider";
+
+export default function AdminPage() {
+  return (
+    <DashboardGuard requiredRole="ADMIN">
+      <div>Admin Only Content</div>
+    </DashboardGuard>
+  );
+}
+
+// Multiple roles
+export default function ManagerPage() {
+  return (
+    <DashboardGuard requiredRole={["ADMIN", "MANAGER"]}>
+      <div>Admin or Manager Content</div>
+    </DashboardGuard>
+  );
+}
+```
+
+## 📖 Usage Examples
+
+### Basic Usage - Get User Data
+
+    ```tsx
+"use client";
+
+import { useUser, useAuthLoading } from "@/store/auth-store";
+
+export function UserProfile() {
+  const user = useUser();
+  const isLoading = useAuthLoading();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <div>No user found</div>;
+  }
+
+  return (
+    <div>
+      <h1>Welcome, {user.name || user.email}!</h1>
+      <p>Role: {user.role}</p>
+      <p>Email: {user.email}</p>
+      {user.image && <img src={user.image} alt="Profile" />}
+    </div>
+  );
+}
+```
+
+### Check Authentication Status
+
+    ```tsx
+"use client";
+
+import { useIsAuthenticated } from "@/store/auth-store";
+import { useRouter } from "next/navigation";
+
+export function ProtectedButton() {
+  const isAuthenticated = useIsAuthenticated();
+  const router = useRouter();
+
+  const handleAction = () => {
+    if (!isAuthenticated) {
+      router.push("/auth/login");
+      return;
+    }
+
+    // Perform authenticated action
+    console.log("User is authenticated!");
+  };
+
+  return (
+    <button onClick={handleAction}>
+      {isAuthenticated ? "Perform Action" : "Sign In"}
+    </button>
+  );
+}
+```
+
+### Role - Based Rendering
+
+    ```tsx
+"use client";
+
+import { useHasRole } from "@/store/auth-store";
+
+export function RoleBasedMenu() {
+  const isAdmin = useHasRole("ADMIN");
+  const isManager = useHasRole(["ADMIN", "MANAGER"]);
+
+  return (
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      {isManager && <a href="/team">Team Management</a>}
+      {isAdmin && <a href="/admin">Admin Panel</a>}
+    </nav>
+  );
+}
+```
+
+### Manager - Specific Data
+
+    ```tsx
+"use client";
+
+import { useManagerData, useUser } from "@/store/auth-store";
+
+export function ManagerDashboard() {
+  const user = useUser();
+  const managerData = useManagerData();
+
+  if (user?.role !== "MANAGER") {
+    return <div>Access Denied</div>;
+  }
+
+  if (!managerData?.managerId) {
+    return <div>Manager data not available</div>;
+  }
+
+  return (
+    <div>
+      <h1>Manager Dashboard</h1>
+      <p>Manager ID: {managerData.managerId}</p>
+      <p>Phone: {managerData.phoneNumber}</p>
+    </div>
+  );
+}
+```
+
+### Using Auth Token for API Calls
+
+    ```tsx
+"use client";
+
+import { useAuthToken } from "@/store/auth-store";
+
+export function DataFetcher() {
+  const token = useAuthToken();
+
+  const fetchData = async () => {
+    if (!token) {
+      console.error("No auth token available");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/data", {
+        headers: {
+          Authorization: `Bearer ${ token } `,
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Fetch error:", error);
+    }
+  };
+
+  return <button onClick={fetchData}>Fetch Protected Data</button>;
+}
+```
+
+### Update User Data
+
+    ```tsx
+"use client";
+
+import { useAuthStore } from "@/store/auth-store";
+
+export function UpdateProfile() {
+  const { updateUser, getUser } = useAuthStore();
+  const user = getUser();
+
+  const handleUpdate = async () => {
+    // Call your API to update user
+    const response = await fetch("/api/user/update", {
+      method: "POST",
+      body: JSON.stringify({ name: "New Name" }),
+    });
+
+    if (response.ok) {
+      // Update local store
+      updateUser({ name: "New Name" });
+    }
+  };
+
+  return (
+    <div>
+      <p>Current Name: {user?.name}</p>
+      <button onClick={handleUpdate}>Update Name</button>
+    </div>
+  );
+}
+```
+
+### Manual Logout
+
+    ```tsx
+"use client";
+
+import { useAuthStore } from "@/store/auth-store";
+import { signOut } from "next-auth/react";
+
+export function LogoutButton() {
+  const { clearSession } = useAuthStore();
+
+  const handleLogout = async () => {
+    // Clear Zustand store
+    clearSession();
+    
+    // Sign out from NextAuth
+    await signOut({ callbackUrl: "/auth/login" });
+  };
+
+  return <button onClick={handleLogout}>Sign Out</button>;
+}
+```
+
+### Direct Store Access(Advanced)
+
+    ```tsx
+"use client";
+
+import { useAuthStore } from "@/store/auth-store";
+
+export function AdvancedComponent() {
+  // Get multiple values at once
+  const { session, isLoading, error, hasRole } = useAuthStore();
+
+  // Access store outside React components (e.g., in utilities)
+  const checkAuth = () => {
+    const isAuth = useAuthStore.getState().isAuthenticated();
+    return isAuth;
+  };
+
+  return (
+    <div>
+      {isLoading && <p>Loading...</p>}
+      {error && <p>Error: {error}</p>}
+      {session && <p>User: {session.user.email}</p>}
+    </div>
+  );
+}
+```
+
+## 🔒 Benefits
+
+ ** Prevents undefined errors ** - User data is always available once initialized
+ ** No unnecessary re - renders ** - Only components using specific data re-render
+ ** Persistent state ** - Survives page refreshes via localStorage
+ ** Type - safe ** - Full TypeScript support
+ ** Role - based access ** - Easy permission checks
+ ** Token management ** - Automatic expiry checks
+ ** Centralized state ** - Single source of truth for auth
+
+## [!] Important Notes
+
+1. ** Session expiry **: Tokens expire after 1 hour(matching your JWT config)
+2. ** Automatic sync **: The store automatically syncs with NextAuth session
+3. ** Loading states **: Always check `isLoading` before accessing user data
+4. ** Role checks **: Use `hasRole()` for permission - based rendering
+5. ** Token refresh **: The store updates when NextAuth refreshes the session
+
+## 🎯 When to Use What
+
+    - ** `useUser()` **: Get user data(most common)
+        - ** `useIsAuthenticated()` **: Check if logged in
+- ** `useHasRole(role)` **: Check permissions
+    - ** `useAuthToken()` **: Get JWT for API calls
+        - ** `useAuthLoading()` **: Show loading states
+            - ** `useManagerData()` **: Manager - specific data
+                - ** `DashboardGuard` **: Protect entire pages / sections

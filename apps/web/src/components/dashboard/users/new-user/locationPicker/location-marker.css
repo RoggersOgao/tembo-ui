@@ -1,0 +1,302 @@
+/* Custom Location Marker - Sci-Fi Styles */
+
+.custom-marker-icon {
+    background: transparent !important;
+    border: none !important;
+}
+
+.marker-3d {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.3));
+}
+
+/* Profile Picture Container */
+.marker-profile {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    z-index: 3;
+    box-shadow:
+        0 0 20px rgba(59, 130, 246, 0.5),
+        0 8px 24px rgba(0, 0, 0, 0.3),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: float 3s ease-in-out infinite;
+}
+
+.marker-3d:hover .marker-profile {
+    transform: scale(1.15) translateY(-5px);
+}
+
+.marker-profile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(1.05) contrast(1.05);
+}
+
+/* Inner Ring - Rotating Sci-Fi Border */
+.marker-ring {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    animation: ringRotate 3s linear infinite;
+    box-shadow:
+        0 0 15px rgba(59, 130, 246, 0.6),
+        inset 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+/* Outer Ring - Secondary Glow */
+.marker-ring-outer {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(59, 130, 246, 0.4);
+    animation: ringPulseOuter 2s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+/* Stem/Line to ground */
+.marker-stem {
+    width: 2px;
+    height: 30px;
+    background: linear-gradient(to bottom,
+            rgba(59, 130, 246, 0.9),
+            rgba(37, 99, 235, 0.6),
+            rgba(37, 99, 235, 0.3));
+    position: relative;
+    z-index: 2;
+    box-shadow:
+        0 0 10px rgba(59, 130, 246, 0.6),
+        0 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    animation: stemPulse 2s ease-in-out infinite;
+}
+
+/* Base circle at ground level */
+.marker-base {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 0.2));
+    position: absolute;
+    bottom: -10px;
+    z-index: 1;
+    box-shadow:
+        0 0 20px rgba(59, 130, 246, 0.8),
+        0 0 40px rgba(59, 130, 246, 0.4);
+    animation: basePulse 2s ease-in-out infinite;
+}
+
+/* Ground Shadow */
+.marker-shadow {
+    position: absolute;
+    bottom: -8px;
+    width: 50px;
+    height: 12px;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.4), transparent);
+    border-radius: 50%;
+    z-index: 0;
+    animation: shadowPulse 3s ease-in-out infinite;
+}
+
+/* Primary Pulse Ring */
+.marker-pulse {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.4), transparent 70%);
+    border: 2px solid rgba(59, 130, 246, 0.6);
+    animation: pulse 2s ease-out infinite;
+    z-index: 1;
+}
+
+/* Secondary Pulse Ring - Delayed */
+.marker-pulse-secondary {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.3), transparent 70%);
+    border: 2px solid rgba(139, 92, 246, 0.5);
+    animation: pulse 2s ease-out 1s infinite;
+    z-index: 0;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(2.8);
+        opacity: 0;
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+@keyframes shadowPulse {
+
+    0%,
+    100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(1.3);
+    }
+}
+
+@keyframes ringRotate {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes ringPulseOuter {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+}
+
+@keyframes stemPulse {
+
+    0%,
+    100% {
+        opacity: 0.9;
+        box-shadow:
+            0 0 10px rgba(59, 130, 246, 0.6),
+            0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    50% {
+        opacity: 1;
+        box-shadow:
+            0 0 20px rgba(59, 130, 246, 0.9),
+            0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+}
+
+@keyframes basePulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 20px rgba(59, 130, 246, 0.8),
+            0 0 40px rgba(59, 130, 246, 0.4);
+    }
+
+    50% {
+        transform: scale(1.2);
+        box-shadow:
+            0 0 30px rgba(59, 130, 246, 1),
+            0 0 60px rgba(59, 130, 246, 0.6);
+    }
+}
+
+/* Leaflet Map Optimization */
+.leaflet-container {
+    font-family: inherit;
+    background: hsl(var(--muted) / 0.3);
+}
+
+.leaflet-tile {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+.leaflet-tile-container {
+    pointer-events: none;
+}
+
+/* Dark Mode Support for Leaflet */
+.dark .leaflet-container {
+    background: hsl(var(--background));
+    filter: brightness(0.9) contrast(1.1);
+}
+
+.dark .leaflet-layer,
+.dark .leaflet-control-zoom-in,
+.dark .leaflet-control-zoom-out,
+.dark .leaflet-control-attribution {
+    filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+.dark .leaflet-control-attribution {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    color: white;
+}
+
+/* Keep marker colors correct in dark mode */
+.dark .custom-marker-icon {
+    filter: none !important;
+}
+
+/* Adjust marker glow for dark mode */
+.dark .marker-profile {
+    box-shadow:
+        0 0 25px rgba(59, 130, 246, 0.7),
+        0 8px 24px rgba(0, 0, 0, 0.5),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark .marker-ring {
+    box-shadow:
+        0 0 20px rgba(59, 130, 246, 0.8),
+        inset 0 0 15px rgba(59, 130, 246, 0.4);
+}
+
+.dark .marker-stem {
+    box-shadow:
+        0 0 15px rgba(59, 130, 246, 0.8),
+        0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.dark .marker-base {
+    box-shadow:
+        0 0 30px rgba(59, 130, 246, 1),
+        0 0 60px rgba(59, 130, 246, 0.6);
+}

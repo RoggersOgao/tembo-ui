@@ -1,0 +1,1154 @@
+// This is your Prisma schema file for TEMBO S3-API
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client"
+  previewFeatures = ["postgresqlExtensions"]
+  output          = "../generated/prisma"
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [postgis]
+}
+
+// ============== ENUMS ==============
+
+// ── Users & Auth ─────────────────────────────────────────────
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+  VIEWER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+  OTHER
+}
+
+enum VerificationStatus {
+  NOT_VERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum VerificationMethod {
+  MANUAL
+  AUTOMATED
+  THIRD_PARTY
+}
+
+enum IDDocumentType {
+  PASSPORT
+  DRIVERS_LICENSE
+  NATIONAL_ID
+  RESIDENCE_PERMIT
+  OTHER
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum SignupSource {
+  WEB
+  MOBILE_WEB
+  IOS
+  ANDROID
+  REFERRAL
+  PARTNER
+  SOCIAL
+}
+
+enum TwoFactorMethod {
+  APP
+  SMS
+  EMAIL
+}
+
+enum MFADeviceType {
+  TOTP
+  FIDO2
+  SMS
+  EMAIL
+}
+
+enum TokenMethod {
+  SMS
+  VOICE
+  EMAIL
+}
+
+enum VerificationLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  VERIFIED
+}
+
+// ── Object Storage ───────────────────────────────────────────
+enum StorageTier {
+  EPHEMERAL
+  HOT
+  WARM
+  COLD
+  ARCHIVE
+}
+
+enum ObjectState {
+  ACTIVE
+  DELETED
+  ARCHIVED
+  CORRUPTED
+}
+
+enum UploadStatus {
+  INITIALIZING
+  UPLOADING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+enum BucketVersioning {
+  ENABLED
+  SUSPENDED
+  DISABLED
+}
+
+enum WormMode {
+  NONE
+  GOVERNANCE
+  COMPLIANCE
+}
+
+enum LockMode {
+  GOVERNANCE
+  COMPLIANCE
+}
+
+// ── Notifications ─────────────────────────────────────────────
+enum NotificationType {
+  OBJECT_CREATED
+  OBJECT_MODIFIED
+  OBJECT_DELETED
+  OBJECT_ACCESSED
+  TIER_CHANGED
+  WORM_ENABLED
+  LOCK_APPLIED
+  HEALTH_ALERT
+  STORAGE_QUOTA_WARNING
+  ACCOUNT_ACTIVITY
+  SECURITY_ALERT
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  SMS
+  EMAIL
+  PUSH
+}
+
+// ============== USER & AUTH MODELS ==============
+
+model User {
+  id   String @id @default(cuid())
+  uuid String @unique @default(uuid())
+
+  // Authentication & Identity
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  phone           String?   @unique
+  phoneVerified   Boolean   @default(false)
+  phoneVerifiedAt DateTime? @map("phone_verified_at")
+  image           String?
+  avatarUrl       String?   @map("avatar_url")
+
+  // Security
+  password              String?
+  passwordHashAlgorithm String?   @default("bcrypt")
+  passwordHistory       String[]
+  passwordLastChanged   DateTime? @map("password_last_changed")
+  passwordExpiresAt     DateTime? @map("password_expires_at")
+  failedLoginAttempts   Int       @default(0)
+  lastFailedLoginIp     String?
+  lastFailedLoginAt     DateTime? @map("last_failed_login_at")
+  isLocked              Boolean?
+  lockedAt              DateTime? @map("locked_at")
+  lockReason            String?   @map("lock_reason")
+  unlockedAt            DateTime? @map("unlocked_at")
+  loginLogs             Json[]
+
+  // Multi-Factor Authentication
+  isTwoFactorEnabled    Boolean                @default(false) @map("is_two_factor_enabled")
+  twoFactorMethod       TwoFactorMethod?       @default(APP) @map("two_factor_method")
+  twoFactorSecret       String?                @map("two_factor_secret")
+  backupCodes           String[]               @map("backup_codes")
+  mfaDevices            MFADevice[]
+  twoFactorConfirmedAt  DateTime?              @map("two_factor_confirmed_at")
+  twoFactorConfirmation TwoFactorConfirmation?
+
+  // Role & Permissions
+  role             UserRole     @default(USER)
+  roleId           String?      @map("role_id")
+  roleModel        Role?        @relation("UserRoles", fields: [roleId], references: [id])
+  permissions      Permission[] @relation("UserPermissions")
+  isActive         Boolean      @default(true) @map("is_active")
+  isSuspended      Boolean      @default(false) @map("is_suspended")
+  suspendedUntil   DateTime?    @map("suspended_until")
+  suspensionReason String?      @map("suspension_reason")
+
+  // Profile & Preferences
+  profile     Profile?
+  preferences Json?
+  language    String   @default("en")
+  timezone    String?  @default("Africa/Nairobi")
+  dateFormat  String?  @default("MM/DD/YYYY")
+  currency    String?  @default("KES")
+
+  // Reputation / Trust
+  reputation      Int   @default(0)
+  reputationScore Float @default(0.0) @map("reputation_score")
+  trustScore      Float @default(0.0) @map("trust_score")
+
+  // Activity Tracking
+  lastLoginAt    DateTime? @map("last_login_at")
+  lastLoginIp    String?   @map("last_login_ip")
+  lastActiveAt   DateTime? @map("last_active_at")
+  loginCount     Int       @default(0) @map("login_count")
+  currentLoginIp String?   @map("current_login_ip")
+
+  // Account Connections
+  accounts Account[]
+  sessions Session[]
+
+  // Trust & Security
+  deviceVerificationChallenges DeviceVerificationChallenge[]
+  trustedDevices               TrustedDevice[]
+  trustedIps                   String[]                      @map("trusted_ips")
+  securityQuestions            SecurityQuestion[]
+  isVerified                   Boolean                       @default(false) @map("is_verified")
+  verificationLevel            VerificationLevel             @default(BASIC) @map("verification_level")
+
+  // Advanced Metadata Fields
+  deviceFingerprint    Json?   @map("device_fingerprint")
+  deviceId             String? @map("device_id")
+  networkMetadata      Json?   @map("network_metadata")
+  userAgentMetadata    Json?   @map("user_agent_metadata")
+  securityMetadata     Json?   @map("security_metadata")
+  registrationMetadata Json?   @map("registration_metadata")
+
+  // Risk Assessment
+  riskLevel                String? @default("LOW") @map("risk_level")
+  isSuspiciousRegistration Boolean @default(false) @map("is_suspicious_registration")
+  requiresVerification     Boolean @default(false) @map("requires_verification")
+
+  // API access
+  apiKeys ApiKey[]
+
+  // Object storage relations
+  buckets Bucket[]
+  uploads Upload[]
+
+  // Notifications & search
+  notifications Notification[]
+  searchHistory SearchHistory[]
+
+  // Tokens & Confirmations
+  verificationTokens  VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  twoFactorTokens     TwoFactorToken[]
+  emailChangeTokens   EmailChangeToken[]
+  phoneChangeTokens   PhoneChangeToken[]
+
+  // Legal & Compliance
+  termsAcceptedAt       DateTime? @map("terms_accepted_at")
+  termsVersion          String?   @map("terms_version")
+  privacyAcceptedAt     DateTime? @map("privacy_accepted_at")
+  privacyVersion        String?   @map("privacy_version")
+  marketingOptIn        Boolean   @default(false) @map("marketing_opt_in")
+  dataProcessingConsent Boolean   @default(false) @map("data_processing_consent")
+
+  // Metadata
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+  createdByIp  String?       @map("created_by_ip")
+  signupSource SignupSource? @map("signup_source")
+  referrerId   String?       @map("referrer_id")
+
+  // Auditing
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@index([roleId])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([lastActiveAt])
+  @@index([deviceId])
+  @@index([riskLevel])
+  @@map("users")
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Information
+  firstName   String?   @map("first_name")
+  lastName    String?   @map("last_name")
+  middleName  String?   @map("middle_name")
+  displayName String?   @map("display_name")
+  dateOfBirth DateTime? @map("date_of_birth")
+  gender      Gender?
+
+  // Contact Information
+  secondaryEmail String? @unique @map("secondary_email")
+  secondaryPhone String? @unique @map("secondary_phone")
+
+  // Address (billing / account address)
+  addressLine1 String? @map("address_line_1")
+  addressLine2 String? @map("address_line_2")
+  city         String?
+  county       String?
+  postalCode   String? @map("postal_code")
+  country      String? @default("KE")
+
+  // Identity Verification
+  idVerificationStatus VerificationStatus  @default(NOT_VERIFIED) @map("id_verification_status")
+  idVerifiedAt         DateTime?           @map("id_verified_at")
+  idVerificationMethod VerificationMethod? @map("id_verification_method")
+  idDocumentType       IDDocumentType?     @map("id_document_type")
+  idDocumentNumber     String?             @map("id_document_number")
+  idDocumentExpiry     DateTime?           @map("id_document_expiry")
+
+  // Social
+  bio               String?           @db.Text
+  profileVisibility ProfileVisibility @default(PUBLIC) @map("profile_visibility")
+
+  // Professional Information (for organization / service accounts)
+  occupation        String?
+  company           String?
+  jobTitle          String? @map("job_title")
+  yearsOfExperience Int?    @map("years_of_experience")
+
+  // Preferences
+  notificationPreferences Json?   @map("notification_preferences")
+  marketingPreferences    Json?   @map("marketing_preferences")
+  communicationLanguage   String? @default("en") @map("communication_language")
+
+  // Metadata
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([userId])
+  @@index([city])
+  @@index([idVerificationStatus])
+  @@map("profiles")
+}
+
+// ============== AUTH SUPPORT MODELS ==============
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken String   @unique @map("session_token")
+  expires      DateTime
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  deviceInfo   Json?    @map("device_info")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastUsedAt   DateTime @default(now()) @map("last_used_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@index([expires])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, token])
+  @@index([userId])
+  @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model TwoFactorToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, token])
+  @@index([userId])
+  @@map("two_factor_tokens")
+}
+
+model TwoFactorConfirmation {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("two_factor_confirmations")
+}
+
+model EmailChangeToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  newEmail  String    @map("new_email")
+  oldEmail  String?   @map("old_email")
+  expiresAt DateTime  @map("expires_at")
+  isUsed    Boolean   @default(false) @map("is_used")
+  usedAt    DateTime? @map("used_at")
+  ipAddress String?   @map("ip_address")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@map("email_change_tokens")
+}
+
+model PhoneChangeToken {
+  id        String      @id @default(cuid())
+  userId    String      @map("user_id")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String      @unique
+  newPhone  String      @map("new_phone")
+  oldPhone  String?     @map("old_phone")
+  expiresAt DateTime    @map("expires_at")
+  isUsed    Boolean     @default(false) @map("is_used")
+  usedAt    DateTime?   @map("used_at")
+  ipAddress String?     @map("ip_address")
+  method    TokenMethod @default(SMS)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@map("phone_change_tokens")
+}
+
+model MFADevice {
+  id           String        @id @default(cuid())
+  userId       String        @map("user_id")
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  type         MFADeviceType
+  secret       String?
+  publicKey    String?       @map("public_key")
+  credentialId String?       @map("credential_id")
+  lastUsedAt   DateTime?     @map("last_used_at")
+  isPrimary    Boolean       @default(false) @map("is_primary")
+  isVerified   Boolean       @default(false) @map("is_verified")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  @@unique([userId, type, credentialId])
+  @@index([userId])
+  @@map("mfa_devices")
+}
+
+model TrustedDevice {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId        String    @unique @map("device_id")
+  deviceTokenHash String    @map("device_token_hash")
+  deviceName      String    @map("device_name")
+  browser         String?
+  browserVersion  String?   @map("browser_version")
+  os              String?
+  osVersion       String?   @map("os_version")
+  deviceType      String?   @map("device_type")
+  location        String?
+  ipAddress       String?   @map("ip_address")
+  trustScore      Int       @default(50) @map("trust_score")
+  verified        Boolean   @default(false)
+  firstSeen       DateTime  @default(now()) @map("first_seen")
+  lastSeen        DateTime  @default(now()) @map("last_seen")
+  expiresAt       DateTime  @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([expiresAt])
+  @@map("trusted_devices")
+}
+
+model DeviceVerificationChallenge {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String   @map("device_id")
+  challengeId String   @unique @map("challenge_id")
+  code        String // 6-digit verification code
+  method      String // 'email' or 'sms'
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3) @map("max_attempts")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([challengeId])
+  @@index([expiresAt])
+  @@map("device_verification_challenges")
+}
+
+model SecurityQuestion {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   String
+  answerHash String   @map("answer_hash")
+  order      Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("security_questions")
+}
+
+// ============== RBAC ==============
+
+model Permission {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  category    String?
+  resource    String?
+  action      String?
+
+  users User[] @relation("UserPermissions")
+  roles Role[] @relation("RolePermissions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([name])
+  @@map("permissions")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  type        UserRole
+
+  level    Int     @default(0)
+  isSystem Boolean @default(false) @map("is_system")
+  isActive Boolean @default(true) @map("is_active")
+
+  permissions Permission[] @relation("RolePermissions")
+  users       User[]       @relation("UserRoles")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by")
+
+  @@index([type])
+  @@index([isActive])
+  @@index([slug])
+  @@map("roles")
+}
+
+model ApiKey {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  keyHash   String @unique @map("key_hash")
+  keyPrefix String @map("key_prefix") // First 8 chars for display
+
+  scopes String[] // ["bucket:read", "bucket:write", "object:*", "admin:read"]
+
+  expiresAt  DateTime? @map("expires_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  isActive   Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([keyHash])
+  @@index([isActive])
+  @@map("api_keys")
+}
+
+// ============== BUCKET MODELS ==============
+
+model Bucket {
+  id     String @id @default(cuid())
+  name   String @unique
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Storage configuration
+  tier       StorageTier @default(HOT)
+  versioning Boolean     @default(false)
+  worm       Boolean     @default(false)
+  encryption Boolean     @default(true)
+
+  // Quotas
+  max_size_gb  Int @default(100)
+  object_limit Int @default(1000000)
+
+  // Statistics
+  object_count Int    @default(0)
+  total_size   BigInt @default(0)
+
+  // Access
+  isPublic Boolean @default(false)
+  isActive Boolean @default(true) @map("is_active")
+
+  // Metadata
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
+
+  // Relations
+  objects     Object[]
+  uploads     Upload[]
+  bucketStats BucketStat?
+  accessLogs  AccessLog[]
+
+  @@index([userId])
+  @@index([name])
+  @@index([created_at])
+  @@map("buckets")
+}
+
+model BucketStat {
+  id       String @id @default(cuid())
+  bucketId String @unique @map("bucket_id")
+  bucket   Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  // Daily metrics
+  date         DateTime @map("date")
+  object_count Int      @default(0) @map("object_count")
+  total_size   BigInt   @default(0) @map("total_size")
+  read_ops     Int      @default(0) @map("read_ops")
+  write_ops    Int      @default(0) @map("write_ops")
+  delete_ops   Int      @default(0) @map("delete_ops")
+
+  // Latency metrics
+  avg_read_latency  Float? @map("avg_read_latency")
+  avg_write_latency Float? @map("avg_write_latency")
+
+  // Egress/Ingress
+  bytes_uploaded   BigInt @default(0) @map("bytes_uploaded")
+  bytes_downloaded BigInt @default(0) @map("bytes_downloaded")
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@unique([bucketId, date])
+  @@index([bucketId])
+  @@index([date])
+  @@map("bucket_stats")
+}
+
+// ============== OBJECT MODELS ==============
+
+model Object {
+  id       String @id @default(cuid())
+  bucketId String @map("bucket_id")
+  bucket   Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  key        String @map("key")
+  version_id String @map("version_id")
+
+  size         BigInt
+  content_type String @map("content_type")
+  etag         String
+
+  tier  StorageTier @default(HOT)
+  state ObjectState @default(ACTIVE)
+
+  // Metadata & Tags (stored as JSON)
+  metadata Json? // Custom metadata
+  tags     Json? // Key-value tags
+
+  // Access tracking
+  access_count  Int       @default(0) @map("access_count")
+  last_accessed DateTime? @map("last_accessed")
+
+  // Encryption
+  encryption_key_id String? @map("encryption_key_id")
+
+  // Checksums
+  checksum_crc32  String? @map("checksum_crc32")
+  checksum_sha256 String? @map("checksum_sha256")
+
+  // Versions
+  parent_version_id String? @map("parent_version_id")
+
+  // Lifecycle
+  expires_at    DateTime? @map("expires_at")
+  transition_at DateTime? @map("transition_at")
+
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
+
+  // Relations
+  objectVersions ObjectVersion[]
+  accessLogs     AccessLog[]
+
+  @@unique([bucketId, key])
+  @@index([bucketId])
+  @@index([key])
+  @@index([tier])
+  @@index([state])
+  @@index([created_at])
+  @@map("objects")
+}
+
+model ObjectVersion {
+  id       String @id @default(cuid())
+  objectId String @map("object_id")
+  object   Object @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+  version_id String  @unique @map("version_id")
+  size       BigInt
+  etag       String
+  is_latest  Boolean @default(true) @map("is_latest")
+  is_deleted Boolean @default(false) @map("is_deleted")
+
+  // Metadata snapshot
+  content_type String? @map("content_type")
+  metadata     Json?
+  tags         Json?
+
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@index([objectId])
+  @@index([version_id])
+  @@index([is_latest])
+  @@map("object_versions")
+}
+
+// ============== UPLOAD MODELS ==============
+
+model Upload {
+  id        String @id @default(cuid())
+  upload_id String @unique @map("upload_id")
+
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bucketId String @map("bucket_id")
+  bucket   Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  key      String
+  size     BigInt
+  uploaded BigInt @default(0)
+
+  status UploadStatus @default(INITIALIZING)
+
+  chunk_size      Int
+  total_chunks    Int
+  received_chunks Int @default(0)
+
+  // For resume support
+  parts_info Json? @map("parts_info") // [{"number":1,"etag":"...","size":...}]
+
+  start_time     DateTime  @default(now()) @map("start_time")
+  end_time       DateTime? @map("end_time")
+  last_heartbeat DateTime? @default(now()) @map("last_heartbeat")
+
+  // Metadata
+  content_type String? @map("content_type")
+  metadata     Json?
+  tags         Json?
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([bucketId])
+  @@index([upload_id])
+  @@index([status])
+  @@map("uploads")
+}
+
+// ============== WORM & LOCK MODELS ==============
+
+model WormRecord {
+  id        String @id @default(cuid())
+  bucketId  String @map("bucket_id")
+  objectKey String @map("object_key")
+
+  mode           WormMode @default(GOVERNANCE)
+  retention_days Int      @map("retention_days")
+  enabled_at     DateTime @default(now()) @map("enabled_at")
+  expires_at     DateTime @map("expires_at")
+
+  enabled_by  String @map("enabled_by")
+  audit_trail Json?  @map("audit_trail")
+
+  is_active Boolean @default(true) @map("is_active")
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@unique([bucketId, objectKey])
+  @@index([bucketId])
+  @@index([objectKey])
+  @@index([is_active])
+  @@map("worm_records")
+}
+
+model LockRecord {
+  id        String @id @default(cuid())
+  bucketId  String @map("bucket_id")
+  objectKey String @map("object_key")
+
+  mode           LockMode @default(GOVERNANCE)
+  retention_days Int      @map("retention_days")
+  locked_at      DateTime @default(now()) @map("locked_at")
+  expires_at     DateTime @map("expires_at")
+
+  locked_by   String  @map("locked_by")
+  legal_hold  Boolean @default(false) @map("legal_hold")
+  hold_reason String? @map("hold_reason")
+
+  is_active Boolean @default(true) @map("is_active")
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@unique([bucketId, objectKey])
+  @@index([bucketId])
+  @@index([objectKey])
+  @@index([is_active])
+  @@map("lock_records")
+}
+
+// ============== ACCESS LOGS ==============
+
+model AccessLog {
+  id       String @id @default(cuid())
+  bucketId String @map("bucket_id")
+  bucket   Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  objectId String? @map("object_id")
+  object   Object? @relation(fields: [objectId], references: [id], onDelete: SetNull)
+
+  operation   String // GET, PUT, DELETE, HEAD, LIST
+  status_code Int    @map("status_code")
+
+  user_id    String? @map("user_id")
+  ip_address String? @map("ip_address")
+  user_agent String? @map("user_agent")
+
+  request_id     String? @map("request_id")
+  bytes_sent     BigInt? @map("bytes_sent")
+  bytes_received BigInt? @map("bytes_received")
+  duration_ms    Float?  @map("duration_ms")
+
+  error_code    String? @map("error_code")
+  error_message String? @map("error_message")
+
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@index([bucketId])
+  @@index([objectId])
+  @@index([created_at])
+  @@index([operation])
+  @@index([status_code])
+  @@map("access_logs")
+}
+
+// ============== METRICS & ANALYTICS ==============
+
+model MetricAggregation {
+  id            String @id @default(cuid())
+  metric_name   String @map("metric_name")
+  bucket        String? // bucket name or "global"
+  window_start  DateTime @map("window_start")
+  window_end    DateTime @map("window_end")
+  window_seconds Int @map("window_seconds")
+
+  // Aggregated values
+  count Int    @default(0)
+  sum   Float  @default(0)
+  avg   Float? @default(0)
+  min   Float? @default(0)
+  max   Float? @default(0)
+  p50   Float? @default(0)
+  p95   Float? @default(0)
+  p99   Float? @default(0)
+
+  // Dimensions
+  dimensions Json? // e.g., {"tier": "HOT", "region": "us-east-1"}
+
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@unique([metric_name, bucket, window_start, window_end, dimensions])
+  @@index([metric_name])
+  @@index([bucket])
+  @@index([window_start])
+  @@index([window_end])
+  @@map("metric_aggregations")
+}
+
+model MetricSample {
+  id          String @id @default(cuid())
+  metric_name String @map("metric_name")
+  bucket      String?
+
+  value  Float
+  labels Json? // {"tier": "HOT", "operation": "GET"}
+
+  timestamp DateTime @default(now()) @map("timestamp")
+
+  @@index([metric_name])
+  @@index([bucket])
+  @@index([timestamp])
+  @@map("metric_samples")
+}
+
+
+// ============== ANALYTICS ==============
+
+model AnalyticsSession {
+  id         String   @id @default(cuid())
+  sessionId  String   @unique
+  duration   Int
+  ip         String?
+  country    String?
+  region     String?
+  city       String?
+  deviceType String?  @map("device_type")
+  browser    String?
+  os         String?
+  referrer   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  events      AnalyticsEvent[]
+  pageVisits  PageVisit[]
+  clickEvents ClickEvent[]
+
+  @@map("analytics_sessions")
+}
+
+model AnalyticsEvent {
+  id        String  @id @default(cuid())
+  sessionId String  @map("session_id")
+  type      String
+  url       String
+  element   String?
+  data      Json?
+
+  session   AnalyticsSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@index([type])
+  @@map("analytics_events")
+}
+
+model PageVisit {
+  id        String    @id @default(cuid())
+  sessionId String    @map("session_id")
+  path      String
+  query     String?
+  startTime DateTime  @default(now()) @map("start_time")
+  endTime   DateTime? @map("end_time")
+  duration  Int?
+
+  session AnalyticsSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([startTime])
+  @@index([path])
+  @@map("analytics_page_visits")
+}
+
+model ClickEvent {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  path      String
+  element   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session AnalyticsSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@index([path])
+  @@index([element])
+  @@map("analytics_click_events")
+}
+
+
+model UserConsent {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  userId      String?
+  preferences Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ============== SEARCH HISTORY ==============
+
+model SearchHistory {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  query        String
+  filters      Json?
+  resultsCount Int    @default(0) @map("results_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("search_history")
+}
+
+// ============== AUDIT LOGS ==============
+
+model AuditLog {
+  id     String @id @default(cuid())
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action     String // "bucket.create", "object.delete", "user.login"
+  entityType String @map("entity_type") // "bucket", "object", "user", "upload"
+  entityId   String? @map("entity_id")
+
+  changes  Json? // Before/after state
+  metadata Json? // Additional context
+
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+  requestId String? @map("request_id")
+
+  success      Boolean @default(true)
+  errorCode    String? @map("error_code")
+  errorMessage String? @map("error_message")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([success])
+  @@map("audit_logs")
+}
+
+// ============== NOTIFICATIONS ==============
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  title     String
+  message   String              @db.Text
+  data      Json?
+  actionUrl String?             @map("action_url")
+
+  isRead Boolean   @default(false) @map("is_read")
+  readAt DateTime? @map("read_at")
+
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  failedAt    DateTime? @map("failed_at")
+  failReason  String?   @map("fail_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============== INITIAL SEED DATA ==============
+
+model SeedData {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      Json?
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@map("seed_data")
+}

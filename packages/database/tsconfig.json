@@ -1,0 +1,12 @@
+// packages/database/tsconfig.json
+{
+    "extends": "@workspace/typescript-config/base.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "target": "ES2023"
+    },
+    "include": ["**/*.ts", "**/*.tsx", "src"],
+    "exclude": ["node_modules", "dist", "generated"]
+}

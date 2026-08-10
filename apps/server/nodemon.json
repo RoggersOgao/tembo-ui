@@ -1,0 +1,10 @@
+{
+    "ignore": [
+        "data/**",
+        "temp/*",
+        "uploads/*",
+        "*.log",
+        "**/*.zip",
+        "node_modules"
+    ]
+}

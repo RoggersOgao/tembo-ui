@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  '@prisma/engines': true
+  bcrypt: true
+  esbuild: true
+  msgpackr-extract: true
+  msw: false
+  node: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true

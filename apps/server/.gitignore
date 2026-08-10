@@ -1,0 +1,12 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/src/config/get-token.js
+/data/gmail-tokens.json
+
+apps/server/data/
+apps/server/logs/
+*.log
+
+

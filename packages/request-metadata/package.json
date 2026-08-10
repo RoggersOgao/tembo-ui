@@ -1,0 +1,67 @@
+{
+    "name": "@repo/request-metadata",
+    "version": "1.0.0",
+    "description": "Advanced request metadata extraction for Node.js applications",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./middleware": {
+            "import": "./dist/middleware/index.js",
+            "require": "./dist/middleware/index.js",
+            "types": "./dist/middleware/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "build:watch": "tsc -p tsconfig.build.json --watch",
+        "clean": "rm -rf dist",
+        "lint": "eslint src/**/*.ts",
+        "lint:fix": "eslint src/**/*.ts --fix",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "type-check": "tsc --noEmit",
+        "prepublishOnly": "npm run build"
+    },
+    "keywords": [
+        "request",
+        "metadata",
+        "ip",
+        "user-agent",
+        "geolocation",
+        "fingerprint",
+        "analytics"
+    ],
+    "author": "RoggersOgao",
+    "license": "MIT",
+    "dependencies": {
+        "fastify": "^5.7.1",
+        "geoip-lite": "^1.4.10",
+        "jest": "^30.2.0",
+        "ts-jest": "^29.4.6",
+        "ua-parser-js": "^2.0.6"
+    },
+    "peerDependencies": {
+        "express": "^4.17.0 || ^5.0.0"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.5",
+        "@types/geoip-lite": "^1.4.4",
+        "@types/jest": "^30.0.0",
+        "@types/node": "^24.10.1",
+        "@types/ua-parser-js": "^0.7.39",
+        "@types/uuid": "^9.0.0",
+        "@typescript-eslint/eslint-plugin": "^8.39.0",
+        "@typescript-eslint/parser": "^8.39.0",
+        "@workspace/typescript-config": "workspace:*",
+        "eslint": "^8.0.0",
+        "typescript":"6.0.2"
+    },
+    "engines": {
+        "node": ">=16.0.0"
+    }
+}
