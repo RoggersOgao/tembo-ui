@@ -1,4 +1,4 @@
-# @your-org/api-utils — Complete Documentation
+# @intellisirn/api-utils — Complete Documentation
 
 A framework-agnostic core (response envelopes + a Zod-backed validation engine) with thin, optional integrations for Express (`server`), the browser/Node (`client`), and response-shaping helpers (`utils`).
 
@@ -28,19 +28,19 @@ import {
   validateRequest,
   apiResponseMiddleware,
   ResponseHandler,
-} from '@your-org/api-utils';
+} from '@sirn/api-utils';
 ```
 
 If you're bundling for the browser and don't want Express types pulled in, import from the subpaths instead:
 
 ```ts
 // Frontend bundle — no Express
-import { ApiClient } from '@your-org/api-utils/client';
-import { ErrorCode, isApiResponse } from '@your-org/api-utils/core';
+import { ApiClient } from '@sirn/api-utils/client';
+import { ErrorCode, isApiResponse } from '@sirn/api-utils/core';
 
 // Backend
-import { apiResponseMiddleware, apiErrorMiddleware, validateRequestRules } from '@your-org/api-utils/server';
-import { validateRequest, customValidators, validationSchemas } from '@your-org/api-utils/validation';
+import { apiResponseMiddleware, apiErrorMiddleware, validateRequestRules } from '@sirn/api-utils/server';
+import { validateRequest, customValidators, validationSchemas } from '@sirn/api-utils/validation';
 ```
 
 ---
@@ -294,7 +294,7 @@ interface ValidationResult {
 This function is framework-agnostic: it just validates a plain object. For Express, either merge `req.body`/`req.query`/`req.params` yourself before calling it, or use `validateRequestRules` from `server/middleware.ts` (§5.5), which does that merge for you.
 
 ```ts
-import { validateRequest } from '@your-org/api-utils/validation';
+import { validateRequest } from '@sirn/api-utils/validation';
 
 const rules: ValidationRules = {
   email: { string: true, email: true, required: true, max: 255, lowercase: true, trim: true },
@@ -578,8 +578,8 @@ On failure it responds `422` directly (does **not** call `next()`):
 **C. Calling `validateRequest` directly inside a handler.** `validateRequestRules` is just a convenience wrapper — there's nothing stopping you from calling the underlying, framework-agnostic `validateRequest(data, rules, options?)` straight inside a route/controller function yourself. This is the way to go when you want to validate `body`, `query`, and `params` **separately** (different rule sets, different error handling per source) instead of merging them into one object, or when you're not using the `validateRequestRules` middleware at all — e.g. inside a `tRPC`/GraphQL resolver, a queue worker, a CLI command, or any non-Express context.
 
 ```ts
-import { validateRequest } from '@your-org/api-utils/validation';
-import { ResponseHandler } from '@your-org/api-utils/utils';
+import { validateRequest } from '@sirn/api-utils/validation';
+import { ResponseHandler } from '@sirn/api-utils/utils';
 
 // Rules defined once, module scope (see the caching note in §4.9)
 const listUsersQueryRules: ValidationRules = {
@@ -645,9 +645,9 @@ This walks through one endpoint end-to-end — `GET /users/:id?includeArchived=t
 
 ```ts
 import { Router } from 'express';
-import { asyncController } from '@your-org/api-utils/server';
-import { ResponseHandler } from '@your-org/api-utils/utils';
-import { validateRequest, validationSchemas, ValidationRules } from '@your-org/api-utils/validation';
+import { asyncController } from '@sirn/api-utils/server';
+import { ResponseHandler } from '@sirn/api-utils/utils';
+import { validateRequest, validationSchemas, ValidationRules } from '@sirn/api-utils/validation';
 
 // Note req.params values arrive as strings even though they represent an id;
 // note req.query values arrive as strings too ('true'/'false', not real booleans)
@@ -840,7 +840,7 @@ router.get('/users/:id', asyncController(async (req, res) => {
 A static-method helper so route handlers don't have to hand-build `ApiResponse`s + status codes every time.
 
 ```ts
-import { ResponseHandler, asyncHandler } from '@your-org/api-utils/utils';
+import { ResponseHandler, asyncHandler } from '@sirn/api-utils/utils';
 
 router.get('/users/:id', asyncHandler(async (req, res) => {
   const user = await db.users.find(req.params.id);
@@ -887,7 +887,7 @@ Full method list:
 ### 8.1 `ApiClient`
 
 ```ts
-import { ApiClient } from '@your-org/api-utils/client';
+import { ApiClient } from '@sirn/api-utils/client';
 
 const api = new ApiClient({
   baseUrl: 'https://api.example.com',
@@ -1134,9 +1134,9 @@ import {
   apiResponseMiddleware, apiErrorMiddleware, corsMiddleware,
   requestIdMiddleware, loggingMiddleware, validateRequestRules,
   asyncController,
-} from '@your-org/api-utils/server';
-import { ResponseHandler } from '@your-org/api-utils/utils';
-import { validationSchemas, customValidators, ValidationRules } from '@your-org/api-utils/validation';
+} from '@sirn/api-utils/server';
+import { ResponseHandler } from '@sirn/api-utils/utils';
+import { validationSchemas, customValidators, ValidationRules } from '@sirn/api-utils/validation';
 
 const app = express();
 app.use(express.json());
@@ -1168,7 +1168,7 @@ app.use(apiErrorMiddleware({ exposeStackTraces: true })); // last
 **Frontend:**
 
 ```ts
-import { ApiClient } from '@your-org/api-utils/client';
+import { ApiClient } from '@sirn/api-utils/client';
 
 const api = new ApiClient({ baseUrl: '/api', retryCount: 2 });
 
